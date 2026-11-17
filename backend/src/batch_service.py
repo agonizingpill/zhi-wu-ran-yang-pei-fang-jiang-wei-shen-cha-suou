@@ -8,6 +8,10 @@ def create_batch(db,data,user,commit=True):
     trial=db.get(Trial,data.approved_trial_id)
     if not trial:raise HTTPException(404,'复染试验不存在')
     if trial.state!='approved' or not db.get(DyeRecipe,trial.recipe_id).locked:raise HTTPException(409,'仅已批准且配方冻结的复染试验可下生产缸次')
+    # 批准后若依据染样被撤回/审查失效，已放行历史保留，但禁止再新建生产缸
+    from .review_service import trial_blockers
+    blockers=trial_blockers(db,trial)
+    if blockers:raise HTTPException(409,'来源试验的染样审查已失效或被撤回，重算通过前拒绝新建生产缸：'+'；'.join(blockers))
     if db.scalar(select(DyeBatch.id).where(DyeBatch.code==data.code)):raise HTTPException(409,'生产缸号已存在')
     target=db.get(Swatch,trial.reference_swatch_id)
     recipe=db.get(DyeRecipe,trial.recipe_id)
@@ -32,6 +36,10 @@ def measure_batch(db,key,data,user):
 def release_batch(db,key,user):
     batch=get_batch(db,key)
     if batch.state!='qualified' or batch.delta_e is None or batch.delta_e>3:raise HTTPException(409,'缸次尚未合格、超色差或已放行，不能签放')
+    # 未放行缸次在签放瞬间再次裁决：撤回/失效/串样/待复核一律拒绝；已放行历史不受影响
+    from .review_service import batch_blockers
+    blockers=batch_blockers(db,batch)
+    if blockers:raise HTTPException(409,'染样审查未通过，拒绝签放：'+'；'.join(blockers))
     from .stock_service import release_guard
     release_guard(db,batch)
     batch.state='released';batch.released_by=user.email

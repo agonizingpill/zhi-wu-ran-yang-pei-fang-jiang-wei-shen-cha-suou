@@ -1,4 +1,4 @@
-from sqlalchemy import String,Float,Boolean,ForeignKey,JSON,CheckConstraint,DateTime,func
+from sqlalchemy import String,Float,Boolean,Integer,ForeignKey,JSON,CheckConstraint,DateTime,func
 from sqlalchemy.orm import Mapped,mapped_column
 from .database import Base
 class User(Base):
@@ -28,6 +28,20 @@ class Swatch(Base):
     a:Mapped[float]=mapped_column(Float)
     b:Mapped[float]=mapped_column(Float)
     measured:Mapped[bool]=mapped_column(Boolean,default=True)
+    # 光谱串样审查与撤回：撤回即标记失真；源数据任何变更推动 source_version 单调递增
+    withdrawn:Mapped[bool]=mapped_column(Boolean,default=False)
+    withdrawn_by:Mapped[str]=mapped_column(String(120),default='')
+    withdraw_reason:Mapped[str]=mapped_column(String(300),default='')
+    withdrawn_at:Mapped[object|None]=mapped_column(DateTime,nullable=True)
+    source_version:Mapped[int]=mapped_column(Integer,default=1)
+    source_updated_at:Mapped[object|None]=mapped_column(DateTime,nullable=True)
+class SourceVersion(Base):
+    """全局源数据水位线：染样新增/源数据更新/撤回都会递增，供审查失效与旧计算裁决。"""
+    __tablename__='source_versions'
+    id:Mapped[int]=mapped_column(primary_key=True)
+    version:Mapped[int]=mapped_column(Integer,default=1)
+    note:Mapped[str]=mapped_column(String(240),default='')
+    at:Mapped[object]=mapped_column(DateTime,server_default=func.now())
 class Trial(Base):
     __tablename__='trials'
     id:Mapped[int]=mapped_column(primary_key=True)

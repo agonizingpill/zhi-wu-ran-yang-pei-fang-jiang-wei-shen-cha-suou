@@ -28,7 +28,10 @@ def create_swatch(db,data,user):
     revision_edit_guard(db,recipe.id)
     if recipe.locked:raise HTTPException(409,'冻结配方不可追加试样，请创建修订配方')
     if db.scalar(select(Swatch).where(Swatch.lot==data.lot)):raise HTTPException(409,'染样批号已存在')
-    item=Swatch(**data.model_dump());db.add(item);log(db,user,f'登记染样 {data.lot}');db.commit();return item
+    item=Swatch(**data.model_dump());db.add(item)
+    from .review_service import bump_source
+    version=bump_source(db,f'新增染样 {data.lot}')
+    log(db,user,f'登记染样 {data.lot}（源版本→{version}）');db.commit();return item
 
 def create_trial(db,data,user):
     recipe=require(db,DyeRecipe,data.recipe_id)
@@ -48,10 +51,18 @@ def transition(db,key,action,user):
         if item.state!='draft':raise HTTPException(409,'仅草稿试验可确认')
         if item.delta_e>3:
             item.state='rejected';item.note='色差超 3，退回修色';log(db,user,'色差超限退回');db.commit();return item
+        # 色差合格也必须先通过光谱串样审查，防止贴错配方的染样被确认
+        from .review_service import swatch_gate
+        swatch_gate(db,item.candidate_swatch_id,'候选染样')
+        swatch_gate(db,item.reference_swatch_id,'目标染样')
         item.state='verified'
     elif action=='approve':
         if item.delta_e>3:raise HTTPException(409,'ΔE > 3，不能批准复染')
         if item.state!='verified':raise HTTPException(409,'需调色师先确认色差')
+        # 确认后源数据可能已更新（如撤回）：批准前再裁决一次，旧结论不能放行
+        from .review_service import swatch_gate
+        swatch_gate(db,item.candidate_swatch_id,'候选染样')
+        swatch_gate(db,item.reference_swatch_id,'目标染样')
         recipe=require(db,DyeRecipe,item.recipe_id)
         if recipe.locked:raise HTTPException(409,'该配方已冻结')
         recipe.locked=True;item.state='approved'

@@ -3,3 +3,7 @@
 .value{display:block;font-size:22px;margin:9px 0}.batch .metricline strong{font-size:21px}.revision .grid3{margin:20px 0}nav{padding-top:18px}nav a{padding-top:13px;padding-bottom:13px}
 
 .subhead{margin-top:30px!important}.stock-table{overflow:auto}.issue .value{font-size:25px}.dispatch .rule,.complaint .rule{font-size:13px;line-height:1.8}.complaint .actions{display:flex;gap:10px;margin-top:18px}nav a{padding-top:10px;padding-bottom:10px}nav .hint{font-size:11px}.complaint,.dispatch{overflow-wrap:anywhere}@media(max-width:767px){.stock-table table{min-width:470px}.issue .grid3{grid-template-columns:1fr 1fr 1fr}.issue .value{font-size:21px}}
+.row-warn{background:oklch(94% .045 60 / .55);border-left:3px solid var(--rust);padding-left:12px}
+.status.verified{color:var(--accent);border-color:oklch(60% .09 245)}
+#evidence-panel table{max-width:760px}
+#evidence-panel .hint{margin:6px 0}
